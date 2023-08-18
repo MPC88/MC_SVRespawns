@@ -11,6 +11,8 @@ Stations and ravagers respawn after configurable timer (default: 30 minutes).
 Stations will respawn with the same faction, but at new random x, y coordinates and undiscovered.  
   
 Ravagers will respawn at new x, y coordinates and with a new randomly generated ship/loadout etc.  
+
+NOTE: This is not retroactive.  Only things destroyed after install will respawn.  
   
 Install  
 =======  
