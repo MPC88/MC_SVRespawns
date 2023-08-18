@@ -8,7 +8,7 @@ Function
 =======  
 Stations and ravagers respawn after configurable timer (default: 30 minutes).  
   
-Stations will respawn with the same faction, but at new random x, y coordinates and undiscovered.  
+Stations will respawn with the same faction, but at new random x, y coordinates in that sector and will be marked as undiscovered.  
   
 Ravagers will respawn at new x, y coordinates and with a new randomly generated ship/loadout etc.  
 
