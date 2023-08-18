@@ -109,6 +109,9 @@ namespace MC_SVRespawns
                     GameData.data.stationList[stationID].destroyed = false;
                     data.destroyedStations.Remove(stationID);
                 }
+
+                if (!GameData.data.stationList[stationID].destroyed && data.destroyedStations.ContainsKey(stationID))
+                    data.destroyedStations.Remove(stationID);
             }
         }
 
@@ -128,6 +131,11 @@ namespace MC_SVRespawns
                     sector.boss.alive = true;
                     remove.Add(sectorIndex);
                 }
+
+                if (GameData.data.sectors[sectorIndex].boss != null &&
+                    GameData.data.sectors[sectorIndex].boss.alive &&
+                    data.desroyedRavagers.ContainsKey(sectorIndex))
+                    remove.Add(sectorIndex);
             }
 
             remove.ForEach(x => data.desroyedRavagers.Remove(x));
