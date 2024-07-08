@@ -205,6 +205,17 @@ namespace MC_SVRespawns
             File.Copy(tempPath, Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat", true);
             File.Delete(tempPath);
         }
+
+        [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.DeleteSaveGame))]
+        [HarmonyPrefix]
+        private static void DeleteSave_Pre()
+        {
+            if (GameData.ExistsAnySaveFile(GameData.gameFileIndex) &&
+                Directory.Exists(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat"))
+            {
+                File.Delete(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat");
+            }
+        }
     }
 
     [Serializable]
