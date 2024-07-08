@@ -121,6 +121,9 @@ namespace MC_SVRespawns
 
             foreach(int sectorIndex in data.desroyedRavagers.Keys)
             {
+                if (sectorIndex < 0 || sectorIndex >= GameData.data.sectors.Count)
+                    continue;
+
                 if (GameData.data.sectors[sectorIndex].boss != null &&
                 !GameData.data.sectors[sectorIndex].boss.alive &&
                 data.desroyedRavagers.TryGetValue(sectorIndex, out float timeDestroyed) &&
