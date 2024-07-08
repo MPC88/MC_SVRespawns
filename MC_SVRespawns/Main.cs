@@ -14,7 +14,7 @@ namespace MC_SVRespawns
     {
         public const string pluginGuid = "mc.starvalor.respawns";
         public const string pluginName = "SV Respawns";
-        public const string pluginVersion = "1.0.0";
+        public const string pluginVersion = "1.0.1";
 
         private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
@@ -209,9 +209,9 @@ namespace MC_SVRespawns
         [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.DeleteSaveGame))]
         [HarmonyPrefix]
         private static void DeleteSave_Pre()
-        {
+        {            
             if (GameData.ExistsAnySaveFile(GameData.gameFileIndex) &&
-                Directory.Exists(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat"))
+                File.Exists(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat"))
             {
                 File.Delete(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat");
             }
