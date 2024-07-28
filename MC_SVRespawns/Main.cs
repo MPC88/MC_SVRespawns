@@ -14,12 +14,11 @@ namespace MC_SVRespawns
     {
         public const string pluginGuid = "mc.starvalor.respawns";
         public const string pluginName = "SV Respawns";
-        public const string pluginVersion = "1.0.1";
+        public const string pluginVersion = "1.1.0";
 
         private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
 
-        public static ConfigEntry<int> cfgStationRespawnTime;
         public static ConfigEntry<int> cfgRavagerRespawnTime;
 
         private static PersistentData data;
@@ -28,30 +27,11 @@ namespace MC_SVRespawns
         {
             Harmony.CreateAndPatchAll(typeof(Main));
 
-            cfgStationRespawnTime = Config.Bind<int>(
-                "Config",
-                "Station respawn time",
-                30,
-                "Station respawn time in minutes.");
-
             cfgRavagerRespawnTime = Config.Bind<int>(
                 "Config",
                 "Ravager respawn time",
                 30,
                 "Ravager respawn time in minutes.");
-        }
-
-        [HarmonyPatch(typeof(StationSystem), nameof(StationSystem.DestroyStation))]
-        [HarmonyPostfix]
-        private static void StationSystemDestroyStation_Post(int id)
-        {
-            if (id < 0 || id >= GameData.data.stationList.Count)
-                return;
-
-            if (data == null)
-                data = new PersistentData();
-
-            data.destroyedStations.Add(id, GameData.timePlayed);
         }
 
         [HarmonyPatch(typeof(AIMarauder), nameof(AIMarauder.Die))]
@@ -74,7 +54,6 @@ namespace MC_SVRespawns
             if (data == null)
                 return;
 
-            RespawnStations(station.sectorIndex);
             RespawnRavagers();
         }
 
@@ -86,33 +65,7 @@ namespace MC_SVRespawns
                 return;
 
             int sectorIndex = GameData.data.GetSectorIndex(X, Y, -1);
-            RespawnStations(sectorIndex);
             RespawnRavagers();
-        }
-
-        private static void RespawnStations(int sectorIndex)
-        {
-            if (sectorIndex < 0 || sectorIndex >= GameData.data.sectors.Count)
-                return;
-
-            foreach (int stationID in GameData.data.sectors[sectorIndex].stationIDs)
-            {
-                if (GameData.data.stationList[stationID].destroyed &&
-                    data.destroyedStations.TryGetValue(stationID, out float timeDestroyed) &&
-                    timeDestroyed + (cfgStationRespawnTime.Value * 60) <= GameData.timePlayed)
-                {
-                    Coordenates c = GameData.data.sectors[sectorIndex].GetMainCoords(true);
-                    GameData.data.stationList[stationID].x = c.x;
-                    GameData.data.stationList[stationID].y = c.y;
-                    GameData.data.stationList[stationID].yRotation = (float)GameData.data.stationList[stationID].GenRand.Next(1, 360);
-                    GameData.data.stationList[stationID].discovered = false;
-                    GameData.data.stationList[stationID].destroyed = false;
-                    data.destroyedStations.Remove(stationID);
-                }
-
-                if (!GameData.data.stationList[stationID].destroyed && data.destroyedStations.ContainsKey(stationID))
-                    data.destroyedStations.Remove(stationID);
-            }
         }
 
         private static void RespawnRavagers()
