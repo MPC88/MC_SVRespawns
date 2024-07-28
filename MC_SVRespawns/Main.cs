@@ -102,6 +102,8 @@ namespace MC_SVRespawns
         private static void MenuControlLoadGame_Post()
         {
             LoadData(GameData.gameFileIndex.ToString("00"));
+            if (data != null && data.destroyedStations.Count > 0)
+                data.destroyedStations.Clear();
         }
 
         internal static void LoadData(string saveIndex)
