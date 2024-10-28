@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
+using static System.Collections.Specialized.BitVector32;
 
 namespace MC_SVRespawns
 {
@@ -14,7 +15,7 @@ namespace MC_SVRespawns
     {
         public const string pluginGuid = "mc.starvalor.respawns";
         public const string pluginName = "SV Respawns";
-        public const string pluginVersion = "1.0.1";
+        public const string pluginVersion = "1.0.2";
 
         private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
@@ -74,7 +75,7 @@ namespace MC_SVRespawns
             if (data == null)
                 return;
 
-            RespawnStations(station.sectorIndex);
+            RespawnStations();
             RespawnRavagers();
         }
 
@@ -85,33 +86,57 @@ namespace MC_SVRespawns
             if (data == null)
                 return;
 
-            int sectorIndex = GameData.data.GetSectorIndex(X, Y, -1);
-            RespawnStations(sectorIndex);
+            RespawnStations();
             RespawnRavagers();
         }
 
-        private static void RespawnStations(int sectorIndex)
+        private static void RespawnStations()
         {
-            if (sectorIndex < 0 || sectorIndex >= GameData.data.sectors.Count)
-                return;
+            List<int> respawned = new List<int>();
+            List<int> affectedSectors = new List<int>();
 
-            foreach (int stationID in GameData.data.sectors[sectorIndex].stationIDs)
+            foreach(int stationID in data.destroyedStations.Keys)
             {
-                if (GameData.data.stationList[stationID].destroyed &&
-                    data.destroyedStations.TryGetValue(stationID, out float timeDestroyed) &&
-                    timeDestroyed + (cfgStationRespawnTime.Value * 60) <= GameData.timePlayed)
+                if (data.destroyedStations[stationID] + (cfgStationRespawnTime.Value * 60) <= GameData.timePlayed)
                 {
-                    Coordenates c = GameData.data.sectors[sectorIndex].GetMainCoords(true);
-                    GameData.data.stationList[stationID].x = c.x;
-                    GameData.data.stationList[stationID].y = c.y;
-                    GameData.data.stationList[stationID].yRotation = (float)GameData.data.stationList[stationID].GenRand.Next(1, 360);
-                    GameData.data.stationList[stationID].discovered = false;
-                    GameData.data.stationList[stationID].destroyed = false;
-                    data.destroyedStations.Remove(stationID);
+                    Station station = GameData.data.stationList[stationID];
+                    TSector sector = GameData.data.sectors[station.sectorIndex];
+                    affectedSectors.Add(station.sectorIndex);
+                    Coordenates c = sector.GetMainCoords(true);
+                    station.x = c.x;
+                    station.y = c.y;
+                    station.yRotation = (float)GameData.data.stationList[stationID].GenRand.Next(1, 360);
+                    station.discovered = false;
+                    station.destroyed = false;
+                    respawned.Add(stationID);                    
                 }
 
                 if (!GameData.data.stationList[stationID].destroyed && data.destroyedStations.ContainsKey(stationID))
-                    data.destroyedStations.Remove(stationID);
+                    respawned.Add(stationID);
+            }
+
+            foreach (int id in respawned)
+                data.destroyedStations.Remove(id);
+
+            foreach(int id in affectedSectors)
+            {
+                TSector sector = GameData.data.sectors[id];
+                List<int> stationIDs = sector.stationIDs;
+                int[] factionPower = new int[6];
+                int cur = 0;
+
+                foreach (int stID in stationIDs)
+                {
+                    if(GameData.data.stationList[stID].factionIndex > -1 &&
+                        GameData.data.stationList[stID].factionIndex < 7)
+                    factionPower[GameData.data.stationList[stID].factionIndex]++;
+
+                    if(factionPower[GameData.data.stationList[stID].factionIndex] > cur)
+                    {
+                        sector.factionControl = GameData.data.stationList[stID].factionIndex;
+                        cur = factionPower[GameData.data.stationList[stID].factionIndex];
+                    }
+                }
             }
         }
 
