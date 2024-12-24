@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
-using static System.Collections.Specialized.BitVector32;
 
 namespace MC_SVRespawns
 {
@@ -15,7 +14,7 @@ namespace MC_SVRespawns
     {
         public const string pluginGuid = "mc.starvalor.respawns";
         public const string pluginName = "SV Respawns";
-        public const string pluginVersion = "1.0.2";
+        public const string pluginVersion = "1.0.3";
 
         private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
@@ -97,29 +96,42 @@ namespace MC_SVRespawns
 
             foreach(int stationID in data.destroyedStations.Keys)
             {
+                Station station = GetStation(stationID);
+
                 if (data.destroyedStations[stationID] + (cfgStationRespawnTime.Value * 60) <= GameData.timePlayed)
                 {
-                    Station station = GameData.data.stationList[stationID];
-                    TSector sector = GameData.data.sectors[station.sectorIndex];
-                    affectedSectors.Add(station.sectorIndex);
-                    Coordenates c = sector.GetMainCoords(true);
-                    station.x = c.x;
-                    station.y = c.y;
-                    station.yRotation = (float)GameData.data.stationList[stationID].GenRand.Next(1, 360);
-                    station.discovered = false;
-                    station.destroyed = false;
-                    respawned.Add(stationID);                    
+                    if (station != null &&
+                        station.sectorIndex > -1 && station.sectorIndex < GameData.data.sectors.Count)
+                    {
+                        TSector sector = GameData.data.sectors[station.sectorIndex];
+                        affectedSectors.Add(station.sectorIndex);
+                        Coordenates c = sector.GetMainCoords(true);
+                        station.x = c.x;
+                        station.y = c.y;
+                        station.yRotation = (float)station.GenRand.Next(1, 360);
+                        station.discovered = false;
+                        station.destroyed = false;
+                        respawned.Add(stationID);
+                    }
+                    else if (data.destroyedStations.ContainsKey(stationID))
+                        respawned.Add(stationID);
                 }
 
-                if (!GameData.data.stationList[stationID].destroyed && data.destroyedStations.ContainsKey(stationID))
+                if (!station.destroyed && data.destroyedStations.ContainsKey(stationID))
                     respawned.Add(stationID);
             }
 
             foreach (int id in respawned)
-                data.destroyedStations.Remove(id);
+            {
+                if (data.destroyedStations.ContainsKey(id))
+                    data.destroyedStations.Remove(id);
+            }
 
             foreach(int id in affectedSectors)
             {
+                if (id < 0 || id >= GameData.data.sectors.Count)
+                    continue;
+
                 TSector sector = GameData.data.sectors[id];
                 List<int> stationIDs = sector.stationIDs;
                 int[] factionPower = new int[6];
@@ -127,14 +139,18 @@ namespace MC_SVRespawns
 
                 foreach (int stID in stationIDs)
                 {
-                    if(GameData.data.stationList[stID].factionIndex > -1 &&
-                        GameData.data.stationList[stID].factionIndex < 7)
-                    factionPower[GameData.data.stationList[stID].factionIndex]++;
+                    Station station = GetStation(stID);
+                    if (station == null)
+                        continue;
 
-                    if(factionPower[GameData.data.stationList[stID].factionIndex] > cur)
+                    if (station.factionIndex > -1 &&
+                        station.factionIndex < 6)
+                        factionPower[station.factionIndex]++;
+
+                    if(factionPower[station.factionIndex] > cur)
                     {
-                        sector.factionControl = GameData.data.stationList[stID].factionIndex;
-                        cur = factionPower[GameData.data.stationList[stID].factionIndex];
+                        sector.factionControl = station.factionIndex;
+                        cur = factionPower[station.factionIndex];
                     }
                 }
             }
@@ -166,7 +182,9 @@ namespace MC_SVRespawns
                     remove.Add(sectorIndex);
             }
 
-            remove.ForEach(x => data.desroyedRavagers.Remove(x));
+            foreach(int ravSector in remove)
+                if (data.desroyedRavagers.ContainsKey(ravSector))
+                    data.desroyedRavagers.Remove(ravSector);
         }
 
         [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.LoadGame))]
@@ -240,6 +258,21 @@ namespace MC_SVRespawns
             {
                 File.Delete(Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat");
             }
+        }
+
+        private static Station GetStation(int stationID)
+        {
+            Station result = null;
+            foreach (Station s in GameData.data.stationList)
+            {
+                if (s.id == stationID)
+                {
+                    result = s;
+                    break;
+                }
+            }
+
+            return result;
         }
     }
 
