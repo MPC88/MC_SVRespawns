@@ -20,7 +20,6 @@ namespace MC_SVRespawns
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
 
         public static ConfigEntry<int> cfgRavagerRespawnTime;
-        public static ConfigEntry<int> cfgRavagerCount;
         public static ConfigEntry<int> cfgStationRespawnTime; // <-- SUNTIKKAN BARIS INI
         private static PersistentData data;
 
@@ -33,11 +32,6 @@ namespace MC_SVRespawns
                 "Ravager respawn time",
                 30,
                 "Ravager respawn time in minutes.");
-            cfgRavagerCount = Config.Bind<int>(
-        "Ravager Custom Ambush",
-        "Ravager Spawn Multiplier",
-        1,
-        "How many bosses will spawn together (1-5). Set higher for Imperial tactical dominance.");
             cfgStationRespawnTime = Config.Bind<int>(
                 "Config",
                 "Station respawn time",
@@ -118,10 +112,8 @@ namespace MC_SVRespawns
                 {
                     TSector sector = GameData.data.sectors[sectorIndex];
 
-                    // Infiltrasi Taktis: Amankan jumlah spawn minimum 1 agar tidak bug
-                    int totalAmbush = cfgRavagerCount.Value < 1 ? 1 : cfgRavagerCount.Value;
-
-                    // Mode Sadis Tanya von Degurechaff: Pemicu Multi-Spawn Boss
+                    // Infiltrasi Taktis: Amankan jumlah spawn maksimum 1
+                    int totalAmbush = 1;
                     for (int i = 0; i < totalAmbush; i++)
                     {
                         sector.boss.CreateBossShip(sector, sector.GetCoordsForTempObjects(), 0);
