@@ -20,7 +20,7 @@ namespace MC_SVRespawns
         private const string modSaveFilePrefix = "Resapwns_"; // modSaveFlePrefixNN.dat
 
         public static ConfigEntry<int> cfgRavagerRespawnTime;
-
+        public static ConfigEntry<int> cfgStationRespawnTime; // <-- SUNTIKKAN BARIS INI
         private static PersistentData data;
 
         public void Awake()
@@ -32,6 +32,11 @@ namespace MC_SVRespawns
                 "Ravager respawn time",
                 30,
                 "Ravager respawn time in minutes.");
+            cfgStationRespawnTime = Config.Bind<int>(
+                "Config",
+                "Station respawn time",
+                45,
+        "Station respawn time in minutes. Player stations from DLC are safe from this calculation.");
         }
 
         [HarmonyPatch(typeof(AIMarauder), nameof(AIMarauder.Die))]
@@ -46,7 +51,28 @@ namespace MC_SVRespawns
                 data.desroyedRavagers.Add(GameData.data.currentSectorIndex, GameData.timePlayed);
             }
         }
+        [HarmonyPatch(typeof(Station), nameof(Station.SetAsDestroyed))]
+        [HarmonyPostfix]
+        private static void StationSetAsDestroyed_Post(Station __instance, bool __result)
+        {
+            // Jika stasiun terbukti sukses dihancurkan (bukan stasiun yang memang sudah hancur dari awal)
+            if (__result && data != null)
+            {
+                int currentSector = GameData.data.currentSectorIndex;
 
+                // "Sesetan" taktis: Catat waktu kehancuran stasiun berdasarkan sektornya
+                if (!data.destroyedStations.ContainsKey(currentSector))
+                {
+                    data.destroyedStations.Add(currentSector, GameData.timePlayed);
+                    Debug.Log("[SV Respawns] Taktis! Stasiun di Sektor " + currentSector + " hancur, waktu dicatat.");
+                }
+                else
+                {
+                    // Jika entah bagaimana kuncinya sudah ada, timpa dengan waktu terbaru
+                    data.destroyedStations[currentSector] = GameData.timePlayed;
+                }
+            }
+        }
         [HarmonyPatch(typeof(GameData), nameof(GameData.MovePlayerToStation))]
         [HarmonyPrefix]
         private static void GameDataMovePlayerToStation_Pre(Station station)
@@ -55,6 +81,7 @@ namespace MC_SVRespawns
                 return;
 
             RespawnRavagers();
+            RespawnStations();
         }
 
         [HarmonyPatch(typeof(GameData), nameof(GameData.GoToSector))]
@@ -64,8 +91,9 @@ namespace MC_SVRespawns
             if (data == null)
                 return;
 
-            int sectorIndex = GameData.data.GetSectorIndex(X, Y, -1);
+            int sectorIndex = GameData.data.GetSectorIndex(X, Y, -1, false);
             RespawnRavagers();
+            RespawnStations();
         }
 
         private static void RespawnRavagers()
@@ -83,7 +111,14 @@ namespace MC_SVRespawns
                 timeDestroyed + (cfgRavagerRespawnTime.Value * 60) <= GameData.timePlayed)
                 {
                     TSector sector = GameData.data.sectors[sectorIndex];
-                    sector.boss.CreateBossShip(sector, sector.GetCoordsForTempObjects(), 0);
+
+                    // Infiltrasi Taktis: Amankan jumlah spawn maksimum 1
+                    int totalAmbush = 1;
+                    for (int i = 0; i < totalAmbush; i++)
+                    {
+                        sector.boss.CreateBossShip(sector, sector.GetCoordsForTempObjects(), 0);
+                    }
+
                     sector.boss.alive = true;
                     remove.Add(sectorIndex);
                 }
@@ -96,7 +131,53 @@ namespace MC_SVRespawns
 
             remove.ForEach(x => data.desroyedRavagers.Remove(x));
         }
+        private static void RespawnStations()
+        {
+            if (data == null || data.destroyedStations == null || data.destroyedStations.Count == 0)
+                return;
 
+            List<int> remove = new List<int>();
+
+            foreach (int sectorIndex in data.destroyedStations.Keys)
+            {
+                if (sectorIndex < 0 || sectorIndex >= GameData.data.sectors.Count)
+                    continue;
+
+                // Hitung mundur: Jika waktu tunggu di .cfg sudah terpenuhi
+                if (data.destroyedStations.TryGetValue(sectorIndex, out float timeDestroyed) &&
+                    timeDestroyed + (cfgStationRespawnTime.Value * 60) <= GameData.timePlayed)
+                {
+                    TSector sector = GameData.data.sectors[sectorIndex];
+
+                    // RITUAL BARU: Pindai daftar ID stasiun di sektor tersebut
+                    if (sector.stationIDs != null)
+                    {
+                        foreach (int stationID in sector.stationIDs)
+                        {
+                            // Panggil wujud stasiunnya menggunakan mantra GameData
+                            Station station = GameData.GetStation(stationID);
+
+                            // Temukan stasiun yang sedang mati/menjadi puing
+                            if (station != null && station.Destroyed)
+                            {
+                                station.Destroyed = false;
+                                station.Wrecked = false;
+
+                                // Panggil fungsi bawaan game untuk isi ulang HP
+                                station.UpdateHP();
+
+                                Debug.Log("[SV Respawns] Sukses! Stasiun utama faksi di Sektor " + sectorIndex + " (ID: " + stationID + ") berhasil dibangun kembali dari puing-puing.");
+                            }
+                        }
+                    }
+                    // Masukkan ke daftar antrean untuk dihapus dari memori "buku kematian"
+                    remove.Add(sectorIndex);
+                }
+            }
+
+            // Bersihkan daftar agar tidak terjadi looping respawn tanpa akhir
+            remove.ForEach(x => data.destroyedStations.Remove(x));
+        }
         [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.LoadGame))]
         [HarmonyPostfix]
         private static void MenuControlLoadGame_Post()
